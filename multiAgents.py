@@ -112,8 +112,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
     import math
     from collections import namedtuple
 
-
-    Node = namedtuple("Node", "agent, state, action")
+    Node = namedtuple("Node", "agent, action, child")
 
     def getAction(self, gameState):
         """
@@ -140,37 +139,100 @@ class MinimaxAgent(MultiAgentSearchAgent):
         """
         "*** YOUR CODE HERE ***"
 
-        current = 0
+        minimax = self.minimax(0, self.depth, gameState)
 
-        while current < self.depth:
+        print "Action: ", minimax[1]
+        print "Minimax: ", minimax[0]
 
-            print "Pacman Legal Actions: ", gameState.getPacmanPosition()
+        return minimax[1]
 
-            for i in range(1, gameState.getNumAgents()):
-                print "Ghost Legal Actions: ", gameState.getGhostState(i)
+    def minimax(self, agent, depth, state):
 
-            current += 1
-            # util.raiseNotDefined()
+        if depth == 0:
+            ghostPos = state.getGhostPosition(agent)
+            ghostDir = state.getGhostState(agent).getDirection()
+            pacPos = state.getPacmanPosition()
+            pacDir = state.getPacmanState().getDirection()
+            food = self.nearestFood(state)
+            foodDir =  self.relativeDir(food, pacPos)
 
-    def minimax(self, agent, depth, gameState):
-        if depth == 0 or len(gameState.getLegalActions(agent)) == 0:
-            return
+            #if ghostDir == pacDir:
+
+
+             #   if foodDir != ghostDir:
+            #        return [manhattanDistance(food, pacPos), foodDir]
+             #   else:
+             #       return [manhattanDistance(ghostPos, pacPos), ghostDir]
+            #else:
+            return [manhattanDistance(ghostPos, pacPos), foodDir]
+
         if agent == 0:
-            best = float('-inf')
+            best = [float('-inf'), 'Stop']
 
-            for action in gameState.getLegalActions(0):
-                for ghost in range(1, gameState.getNumAgents()):
-                    val = self.minimax(ghost, depth, gameState)
-                    best = max(best, val)
+            for action in state.getLegalActions(agent):
+                for ghostAgent in range(1, state.getNumAgents()):
+                    val = self.minimax(ghostAgent, depth - 1, state.generateSuccessor(agent, action))
+                    best = [max(best[0], val[0]), action]
+
+            return best
 
         else:
-            best = float('inf')
+            best = [float('inf'), 'Stop']
 
-            for action in gameState.getLegalActions(agent):
-                val = self.minimax(0, depth - 1, gameState)
-                best = min(best, val)
+            for action in state.getLegalActions(agent):
+                val = self.minimax(0, depth, state.generateSuccessor(agent, action))
+                best = [min(best[0], val[0]), action]
 
-        return best
+            return best
+
+    def heuristic(self, agent):
+        state = self.gamestate
+
+        pacmanPosition = state.getPacmanPosition()
+        ghostDistance = manhattanDistance(state.getPacmanPosition(), state.getGhostPosition(agent))
+        food = state.getFood()
+        nearestFood = (float('inf'), float('inf'))
+        foodDir = []
+
+        for x in range(len(food)):
+            for y in range(len(food[x])):
+                if food[x][y] == True:
+                    if manhattanDistance((x, y), pacmanPosition) < manhattanDistance(pacmanPosition, nearestFood):
+                        nearestFood = (x, y)
+
+        foodDir = self.relativeDir(nearestFood, pacmanPosition)
+
+    def nearestFood(self, state):
+        pacmanPosition = state.getPacmanPosition()
+        food = state.getFood()
+        nearestFood = (float('inf'), float('inf'))
+
+        for x in range(food.width):
+            for y in range(food.height):
+                if food[x][y] == True:
+                    if manhattanDistance((x, y), pacmanPosition) < manhattanDistance(pacmanPosition, nearestFood):
+                        nearestFood = (x, y)
+
+        return nearestFood
+
+    def relativeDir(self, xy1, xy2):
+        """
+            Returns the direction of xy1 relative to xy2
+        """
+
+        dir = []
+
+        if xy1[0] < xy2[0]:
+            dir.append('West')
+        elif xy1[0] > xy2[0]:
+            dir.append('East')
+        if xy1[1] < xy2[1]:
+            dir.append('South')
+        elif xy1[1] > xy2[1]:
+            dir.append('North')
+
+        return dir
+
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
