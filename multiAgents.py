@@ -109,10 +109,6 @@ class MinimaxAgent(MultiAgentSearchAgent):
     """
       Your minimax agent (question 1)
     """
-    import math
-    from collections import namedtuple
-
-    Node = namedtuple("Node", "agent, action, child")
 
     def getAction(self, gameState):
         """
@@ -139,105 +135,55 @@ class MinimaxAgent(MultiAgentSearchAgent):
         """
         "*** YOUR CODE HERE ***"
 
-        minimax = self.minimax(0, self.depth, gameState)
+        agent = 0  # Start with Pacman
+        actions = gameState.getLegalActions(agent)
+        actions.remove(Directions.STOP)
+        minimaxactions = {}
 
-        print "Action: ", minimax[1]
-        print "Minimax: ", minimax[0]
+        for action in actions:
+            mm = self.minimax(agent, self.depth, gameState.generateSuccessor(agent, action))
+            minimaxactions[mm] = action  # Use a dictionary to associate the action with the minimax value
 
-        return minimax[1]
+        action = minimaxactions[max(minimaxactions)]  # Do final max layer to get action
+
+        print "Action: ", action
+        print "Minimax: ", max(minimaxactions)
+
+        return action
 
     def minimax(self, agent, depth, state):
 
-        if depth == 0:
-            ghostPos = state.getGhostPosition(agent)
-            ghostDir = state.getGhostState(agent).getDirection()
-            pacPos = state.getPacmanPosition()
-            pacDir = state.getPacmanState().getDirection()
-            food = self.nearestFood(state)
-            foodDir =  self.relativeDir(food, pacPos)
+        if agent == state.getNumAgents():  # Start again with Pacman when ghosts are done
+            agent = 0
 
-            #if ghostDir == pacDir:
-
-
-             #   if foodDir != ghostDir:
-            #        return [manhattanDistance(food, pacPos), foodDir]
-             #   else:
-             #       return [manhattanDistance(ghostPos, pacPos), ghostDir]
-            #else:
-            return [manhattanDistance(ghostPos, pacPos), foodDir]
+        if depth == 0 or state.isWin() or state.isLose():
+            return self.evaluationFunction(state)  # Recursive base case, return score
 
         if agent == 0:
-            best = [float('-inf'), 'Stop']
+            ret = float('-inf')  # Low number for initial max
+            actions = state.getLegalActions(agent)
+            actions.remove(Directions.STOP)  # Increase achievable depth
 
-            for action in state.getLegalActions(agent):
-                for ghostAgent in range(1, state.getNumAgents()):
-                    val = self.minimax(ghostAgent, depth - 1, state.generateSuccessor(agent, action))
-                    best = [max(best[0], val[0]), action]
-
-            return best
+            for action in actions:  # For each legal action recursively call minimax and get max of the result
+                ret = max(ret, self.minimax(agent + 1, depth - 1, state.generateSuccessor(agent, action)))
 
         else:
-            best = [float('inf'), 'Stop']
+            ret = float('inf')  # High number for initial min
+            actions = state.getLegalActions(agent)
+            # Ghosts already can't stop
+            for action in actions:  # For each legal action recursively call minimax and get min of the result
+                ret = min(ret, self.minimax(agent + 1, depth, state.generateSuccessor(agent, action)))
 
-            for action in state.getLegalActions(agent):
-                val = self.minimax(0, depth, state.generateSuccessor(agent, action))
-                best = [min(best[0], val[0]), action]
-
-            return best
-
-    def heuristic(self, agent):
-        state = self.gamestate
-
-        pacmanPosition = state.getPacmanPosition()
-        ghostDistance = manhattanDistance(state.getPacmanPosition(), state.getGhostPosition(agent))
-        food = state.getFood()
-        nearestFood = (float('inf'), float('inf'))
-        foodDir = []
-
-        for x in range(len(food)):
-            for y in range(len(food[x])):
-                if food[x][y] == True:
-                    if manhattanDistance((x, y), pacmanPosition) < manhattanDistance(pacmanPosition, nearestFood):
-                        nearestFood = (x, y)
-
-        foodDir = self.relativeDir(nearestFood, pacmanPosition)
-
-    def nearestFood(self, state):
-        pacmanPosition = state.getPacmanPosition()
-        food = state.getFood()
-        nearestFood = (float('inf'), float('inf'))
-
-        for x in range(food.width):
-            for y in range(food.height):
-                if food[x][y] == True:
-                    if manhattanDistance((x, y), pacmanPosition) < manhattanDistance(pacmanPosition, nearestFood):
-                        nearestFood = (x, y)
-
-        return nearestFood
-
-    def relativeDir(self, xy1, xy2):
-        """
-            Returns the direction of xy1 relative to xy2
-        """
-
-        dir = []
-
-        if xy1[0] < xy2[0]:
-            dir.append('West')
-        elif xy1[0] > xy2[0]:
-            dir.append('East')
-        if xy1[1] < xy2[1]:
-            dir.append('South')
-        elif xy1[1] > xy2[1]:
-            dir.append('North')
-
-        return dir
+        return ret
 
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
       Your minimax agent with alpha-beta pruning (question 2)
     """
+    from collections import namedtuple
+
+    abval = namedtuple("abval", "value, action")
 
     def getAction(self, gameState):
         """
@@ -247,7 +193,65 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
             getAction returns (i.e., the value of the minimax decision)
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+
+        alpha = float('-inf')
+        beta = float('inf')
+        ab = self.alphabeta(0, self.depth, gameState, alpha, beta)
+
+        print "Action: ", ab.action
+        print "AlphaBeta: ", ab.value
+
+        return ab.action
+
+    def alphabeta(self, agent, depth, state, alpha, beta):
+
+        if agent == state.getNumAgents():  # Start again with Pacman when ghosts are done
+            agent = 0
+
+        if depth == 0 or state.isWin() or state.isLose():  # Recursive base case
+            if agent == 0:  # Get action for current state
+                action = state.getPacmanState().getDirection()
+            else:
+                action = state.getGhostState(agent).getDirection()
+
+            return self.abval(self.evaluationFunction(state), action)
+
+        if agent == 0:
+            ret = self.abval(float('-inf'), Directions.STOP)  # Low number for initial max, stop is placeholder
+            actions = state.getLegalActions(agent)
+            actions.remove(Directions.STOP)  # Increase achievable depth
+
+            for action in actions:
+                ab = self.alphabeta(agent + 1, depth - 1, state.generateSuccessor(agent, action), alpha, beta)
+                ab = self.abval(ab.value, action)
+
+                if max(ret.value, ab.value) == ab.value:  # Max the alphabeta value
+                    ret = ab
+
+                if ret.value >= beta:  # Skip branches worse than the current one
+                    return ret
+
+                alpha = max(alpha, ret.value)  # Set alpha
+
+            return ret
+
+        else:
+            ret = self.abval(float('inf'), Directions.STOP)  # Low number for initial min, stop is placeholder
+            actions = state.getLegalActions(agent)
+            # Ghosts already can't stop
+            for action in actions:
+                ab = self.alphabeta(agent + 1, depth, state.generateSuccessor(agent, action), alpha, beta)
+                ab = self.abval(ab.value, action)
+
+                if min(ret.value, ab.value) == ab.value:  # Min the alphabeta value
+                    ret = ab
+
+                if ret.value <= alpha:  # Skip branches better than the current one
+                    return ret
+
+                beta = max(beta, ret.value)  # Set beta
+
+            return ret
 
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
